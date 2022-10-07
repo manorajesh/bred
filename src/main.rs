@@ -54,7 +54,7 @@ fn main() {
 
     let mut offset = 0;
     let mut index_for_printing = 0;
-    print!("{}{:0>7x}|{} ", "\x1b[90m", offset, "\x1b[0m");
+    print!("{}{:0>7x}{}| ", "\x1b[90m", offset, "\x1b[0m");
 
     loop {
         let bytes_read = file.read(&mut buffer).expect("read failed");
@@ -86,18 +86,6 @@ fn main() {
             if args.color {
                 if char.escape_debug().len() > 1 {
                     print!("{}{}{}", "\x1b[31m", pchar, "\x1b[0m");
-                    index_for_printing = {
-                        if args.hex {
-                            index_for_printing
-                        } else {
-                            let test = index_for_printing + char.escape_debug().len() - 1;
-                            if test % print_length == 1 {
-                                index_for_printing
-                            } else {
-                                test
-                            }
-                        }
-                    };
                 } else {
                     print!("{}", pchar);
                 }
@@ -106,7 +94,7 @@ fn main() {
             }
 
             //println!("{}", index_for_printing % print_length);
-            if index_for_printing % print_length == 0 {
+            if index_for_printing % print_length == 0{
                 offset = {
                     if bytes_read < print_length {
                         offset + bytes_read
@@ -114,8 +102,8 @@ fn main() {
                         offset + print_length
                     }
                 };
-                if args.hex{ print!("|\n{}{:0>7x}|{} ", "\x1b[90m", offset, "\x1b[0m"); }   // because hex has extra space 
-                else { print!(" |\n{}{:0>7x}|{} ", "\x1b[90m", offset, "\x1b[0m"); }        // at end of last character
+                if args.hex{ print!("\n{}{:0>7x}|{} ", "\x1b[90m", offset, "\x1b[0m"); }   // because hex has extra space 
+                else { print!("\n{}{:0>7x}{}| ", "\x1b[90m", offset, "\x1b[0m"); }        // at end of last character
             }
         }
     }
