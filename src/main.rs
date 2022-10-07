@@ -1,5 +1,5 @@
 use clap::Parser;
-use std::{fs::File, io::Read, process::exit};
+use std::{fs::File, io::{Read, stdout, Write, BufWriter}, process::exit};
 
 const CHUNK_SIZE: &str = "1024";
 const PRINT_LENGTH: &str = "32";
@@ -37,6 +37,9 @@ struct Args {
 }
 fn main() {
     let args = Args::parse();
+
+    let lock = stdout().lock();
+    let mut w = BufWriter::new(lock);
 
     let mut file = File::open(args.file).expect("file not found");
     let mut buffer = vec![0; args.chunk];
@@ -85,12 +88,12 @@ fn main() {
 
             if args.color {
                 if char.escape_debug().len() > 1 {
-                    print!("{}{}{}", "\x1b[31m", pchar, "\x1b[0m");
+                    write!(w, "{}{}{}", "\x1b[31m", pchar, "\x1b[0m").expect("Unable to print");
                 } else {
-                    print!("{}", pchar);
+                    write!(w, "{}", pchar).expect("Unable to print");
                 }
             } else {
-                print!("{}", pchar);
+                write!(w, "{}", pchar).expect("Unable to print");
             }
 
             //println!("{}", index_for_printing % print_length);
@@ -102,10 +105,10 @@ fn main() {
                         offset + print_length
                     }
                 };
-                if args.hex{ print!("\n{}{:0>7x}|{} ", "\x1b[90m", offset, "\x1b[0m"); }   // because hex has extra space 
-                else { print!("\n{}{:0>7x}{}| ", "\x1b[90m", offset, "\x1b[0m"); }        // at end of last character
+                if args.hex{ write!(w, "\n{}{:0>7x}|{} ", "\x1b[90m", offset, "\x1b[0m").expect("Unable to print"); }   // because hex has extra space 
+                else { write!(w, "\n{}{:0>7x}{}| ", "\x1b[90m", offset, "\x1b[0m").expect("Unable to print"); }        // at end of last character
             }
         }
     }
-    println!();
+    writeln!(w).expect("Unable to print");
 }
