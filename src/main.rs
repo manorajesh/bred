@@ -30,6 +30,10 @@ struct Args {
     /// Print in color
     #[arg(short = 'G', long)]
     color: bool,
+
+    /// Explicitly display space as placeholder: (_)
+    #[arg(short = 's', long, value_name="CHARACTER", default_value="false")]
+    space: bool,
 }
 fn main() {
     let args = Args::parse();
@@ -50,11 +54,9 @@ fn main() {
 
     let mut offset = 0;
     let mut index_for_printing = 0;
-    let mut did_end: bool;
     print!("{}{:0>7x}|{} ", "\x1b[90m", offset, "\x1b[0m");
 
     loop {
-        did_end = false;
         let bytes_read = file.read(&mut buffer).expect("read failed");
         if bytes_read == 0 {
             break;
@@ -65,9 +67,18 @@ fn main() {
         for char in String::from_utf8_lossy(&buffer).chars() {
             // printable char
             let pchar = if args.hex {
-                format!("{:02x} ", char as u8)
+                let hex = format!("{:02x} ", char as u8);
+                if hex == "20 " && args.space {
+                    format!("{}{}{}", "\x1b[36m", hex, "\x1b[0m")
+                } else {
+                    hex
+                }
             } else {
-                char.escape_debug().to_string()
+                if char == ' ' && args.space {
+                    String::from("\x1b[36m_\x1b[0m")
+                } else {
+                    char.escape_debug().to_string()
+                }
             };
             
             index_for_printing += 1;
@@ -96,17 +107,17 @@ fn main() {
 
             //println!("{}", index_for_printing % print_length);
             if index_for_printing % print_length == 0 {
-                offset += print_length;
+                offset = {
+                    if bytes_read < print_length {
+                        offset + bytes_read
+                    } else {
+                        offset + print_length
+                    }
+                };
                 if args.hex{ print!("|\n{}{:0>7x}|{} ", "\x1b[90m", offset, "\x1b[0m"); }   // because hex has extra space 
                 else { print!(" |\n{}{:0>7x}|{} ", "\x1b[90m", offset, "\x1b[0m"); }        // at end of last character
-                did_end = true;
             }
         }
-        if !did_end {
-            if args.hex { print!("|\n") }
-            else { print!(" |\n") }
-        } else {
-            println!();
-        }
     }
+    println!();
 }
