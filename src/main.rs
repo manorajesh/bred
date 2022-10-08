@@ -1,12 +1,12 @@
 use clap::Parser;
 use std::{fs::File, io::{Read, stdout, Write, BufWriter}, process::exit};
 
-const CHUNK_SIZE: &str = "1024";
+const CHUNK_SIZE: &str = "4096";
 const PRINT_LENGTH: &str = "32";
 
 #[derive(Parser)]
 #[command(
-    version = "0.0.1",
+    version = "0.1.0",
     author = "Mano Rajesh",
     about = "A simple binary file reader"
 )]
@@ -72,23 +72,48 @@ fn main() {
             let pchar = if args.hex {
                 let hex = format!("{:02x} ", char as u8);
                 if hex == "20 " && args.space {
-                    format!("{}{}{}", "\x1b[36m", hex, "\x1b[0m")
+                    format!("{}{}{}", "\x1b[32m", hex, "\x1b[0m") // green
                 } else {
                     hex
                 }
             } else {
                 if char == ' ' && args.space {
-                    String::from("\x1b[36m_\x1b[0m")
+                    String::from("\x1b[32m_\x1b[0m") // green
                 } else {
                     char.escape_debug().to_string()
                 }
             };
             
-            index_for_printing += 1;
+            let char_length = char.escape_debug().len();
+            index_for_printing = {
+                if args.hex {
+                    index_for_printing + 1
+                } else {
+                    index_for_printing + char_length
+                }
+            };
 
             if args.color {
-                if char.escape_debug().len() > 1 {
-                    write!(w, "{}{}{}", "\x1b[31m", pchar, "\x1b[0m").expect("Unable to print");
+                if char_length > 1 {
+                    let color = {
+                        match char_length {
+                            2 => {
+                                if char == '\0' {
+                                    "\x1b[90m"
+                                } else {
+                                    "\x1b[91m"
+                                }
+                            },
+                            3 => "\x1b[36m", // cyan
+                            4 => "\x1b[38;5;220m", // orange
+                            5 => "\x1b[38;5;172m", // yellow
+                            6 => "\x1b[38;5;33m", // bright blue
+                            7 => "\x1b[35m", // magenta
+                            _ => "\x1b[0m", // reset
+                        }
+                    };
+
+                    write!(w, "{}{}{}", color, pchar, "\x1b[0m").expect("Unable to print");
                 } else {
                     write!(w, "{}", pchar).expect("Unable to print");
                 }
@@ -96,8 +121,7 @@ fn main() {
                 write!(w, "{}", pchar).expect("Unable to print");
             }
 
-            //println!("{}", index_for_printing % print_length);
-            if index_for_printing % print_length == 0{
+            if index_for_printing > print_length {
                 offset = {
                     if bytes_read < print_length {
                         offset + bytes_read
@@ -105,8 +129,20 @@ fn main() {
                         offset + print_length
                     }
                 };
-                if args.hex{ write!(w, "\n{}{:0>7x}|{} ", "\x1b[90m", offset, "\x1b[0m").expect("Unable to print"); }   // because hex has extra space 
-                else { write!(w, "\n{}{:0>7x}{}| ", "\x1b[90m", offset, "\x1b[0m").expect("Unable to print"); }        // at end of last character
+                if args.hex{ 
+                    write!(w, "|\n{}{:0>7x}|{} ", "\x1b[90m", offset, "\x1b[0m").expect("Unable to print"); 
+                }   // because hex has extra space 
+                else { 
+                    let wall = {
+                        if index_for_printing >= print_length+2 { // not sure why +2
+                            ""
+                        } else {
+                            " |"
+                        }
+                    };
+                    write!(w, "{}\n{}{:0>7x}{}| ", wall, "\x1b[90m", offset, "\x1b[0m").expect("Unable to print"); 
+                }   // at end of last character
+                index_for_printing = 0;
             }
         }
     }
