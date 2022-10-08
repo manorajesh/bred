@@ -19,7 +19,7 @@
                     "kind": "bin"
                 }
             },
-            "args": ["src/source.bin", "-Gsx", "-c10"],
+            "args": ["src/source.bin", "-l4"],
             "cwd": "${workspaceFolder}"
         },
         {

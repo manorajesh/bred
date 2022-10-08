@@ -1,7 +1,16 @@
 [package]
-name = "binary_reader"
-version = "0.1.0"
+name = "bred"
+version = "0.1.2"
 edition = "2021"
+readme = "README.md"
+exclude = [".vscode/*",]
+homepage = "https://github.com/manorajesh/bred"
+repository = "https://github.com/manorajesh/bred"
+keywords = ["cli", "binary", "files", "reader"]
+categories = ["command-line-utilities"]
+description = "A simple binary file reader with coloring"
+license = "MIT"
+
 
 # See more keys and their definitions at https://doc.rust-lang.org/cargo/reference/manifest.html
 
