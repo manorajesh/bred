@@ -1,19 +1,19 @@
 use clap::Parser;
-use std::{fs::File, io::{Read, stdout, Write, BufWriter}, process::exit};
+use std::{fs::File, io::{Read, stdout, Write, BufWriter, stdin}, process::exit};
 
 const CHUNK_SIZE: &str = "4096";
 const PRINT_LENGTH: &str = "32";
 
 #[derive(Parser)]
 #[command(
-    version = "0.1.2",
+    version = "0.2.0",
     author = "Mano Rajesh",
     about = "A simple binary file reader"
 )]
 
 struct Args {
-    /// The file to read
-    file: String,
+    /// The file to read or stdin if not provided
+    file: Option<String>,
 
     /// Number of characters to print [default for hex: 8]
     #[arg(short = 'l', long = "length", default_value=PRINT_LENGTH, value_name="CHARACTERS", name="characters")]
@@ -41,13 +41,14 @@ fn main() {
     let lock = stdout().lock();
     let mut w = BufWriter::new(lock);
 
-    let mut file = File::open(args.file).expect("file not found");
+    let mut file = get_file_descriptor(args.file);
+
     let mut buffer = vec![0; args.chunk];
     let print_length = {
         if args.hex && args.plength == PRINT_LENGTH.parse::<usize>().unwrap() {
             8
         } else if args.plength < 1 {
-            println!("Invalid length");
+            println!("Invalid length of {}; \x1b[31muse 1 or more\x1b[0m", args.plength);
             exit(1);
         } else {
             args.plength
@@ -115,13 +116,17 @@ fn main() {
 
                     write!(w, "{}{}{}", color, pchar, "\x1b[0m").expect("Unable to print");
                 } else {
-                    write!(w, "{}", pchar).expect("Unable to print");
+                    if char.is_ascii() {
+                        write!(w, "{}", pchar).expect("Unable to print");
+                    } else {
+                        write!(w, "{}{}{}", "\x1b[38;5;130m", pchar, "\x1b[0m").expect("Unable to print");
+                    }     
                 }
             } else {
                 write!(w, "{}", pchar).expect("Unable to print");
             }
 
-            if index_for_printing > print_length {
+            if index_for_printing >= print_length {
                 offset = {
                     if bytes_read < print_length {
                         offset + bytes_read
@@ -134,7 +139,7 @@ fn main() {
                 }   // because hex has extra space 
                 else { 
                     let wall = {
-                        if index_for_printing >= print_length+2 { // not sure why +2
+                        if index_for_printing > print_length {
                             ""
                         } else {
                             " |"
@@ -147,4 +152,20 @@ fn main() {
         }
     }
     writeln!(w).expect("Unable to print");
+}
+
+fn get_file_descriptor(infile: Option<String>) -> Box<dyn Read> {
+    let input: Box<dyn Read> = match infile {
+        Some(f) => {
+            match File::open(&f) {
+                Ok(f) => Box::new(f),
+                Err(e) => {
+                    println!("{}Error:{} {}", "\x1b[31m", "\x1b[0m", e);
+                    exit(1);
+                }
+            }
+        },
+        None => Box::new(stdin()),
+    };
+    input
 }
