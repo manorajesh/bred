@@ -7,34 +7,34 @@
         {
             "type": "lldb",
             "request": "launch",
-            "name": "Debug executable 'binary_reader'",
+            "name": "Debug executable 'bred'",
             "cargo": {
                 "args": [
                     "build",
-                    "--bin=binary_reader",
-                    "--package=binary_reader"
+                    "--bin=bred",
+                    "--package=bred"
                 ],
                 "filter": {
-                    "name": "binary_reader",
+                    "name": "bred",
                     "kind": "bin"
                 }
             },
-            "args": ["src/source.bin", "-l4"],
+            "args": ["tests/source.bin", "-Gl5"],
             "cwd": "${workspaceFolder}"
         },
         {
             "type": "lldb",
             "request": "launch",
-            "name": "Debug unit tests in executable 'binary_reader'",
+            "name": "Debug unit tests in executable 'bred'",
             "cargo": {
                 "args": [
                     "test",
                     "--no-run",
-                    "--bin=binary_reader",
-                    "--package=binary_reader"
+                    "--bin=bred",
+                    "--package=bred"
                 ],
                 "filter": {
-                    "name": "binary_reader",
+                    "name": "bred",
                     "kind": "bin"
                 }
             },
