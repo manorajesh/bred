@@ -2,11 +2,11 @@ use clap::Parser;
 use std::{fs::File, io::{Read, stdout, Write, BufWriter, stdin}, process::exit};
 
 const CHUNK_SIZE: &str = "4096";
-const PRINT_LENGTH: &str = "32";
+const PRINT_LENGTH: &str = "64";
 
 #[derive(Parser)]
 #[command(
-    version = "0.2.0",
+    version = "0.2.1",
     author = "Mano Rajesh",
     about = "A simple binary file reader"
 )]
@@ -15,9 +15,9 @@ struct Args {
     /// The file to read or stdin if not provided
     file: Option<String>,
 
-    /// Number of characters to print [default for hex: 8]
-    #[arg(short = 'l', long = "length", default_value=PRINT_LENGTH, value_name="CHARACTERS", name="characters")]
-    plength: usize,
+    /// Number of characters to print [default for hex: 8] [default: 64]
+    #[arg(short = 'l', long = "length", value_name="CHARACTERS", name="characters")]
+    plength: Option<usize>,
 
     /// Chunk size (faster but more memory usage)
     #[arg(short, long, default_value=CHUNK_SIZE, value_name="BYTES")]
@@ -38,23 +38,32 @@ struct Args {
 fn main() {
     let args = Args::parse();
 
+    // BufWriter helps with small, repeated writes
     let lock = stdout().lock();
     let mut w = BufWriter::new(lock);
 
+    // Read from stdin if no file is provided
     let mut file = get_file_descriptor(args.file);
-
     let mut buffer = vec![0; args.chunk];
+
+    // accounting for defaults and valid values
     let print_length = {
-        if args.hex && args.plength == PRINT_LENGTH.parse::<usize>().unwrap() {
+        if args.hex && args.plength == None {
             8
-        } else if args.plength < 1 {
-            println!("Invalid length of {}; \x1b[31muse 1 or more\x1b[0m", args.plength);
-            exit(1);
         } else {
-            args.plength
+            match args.plength {
+                Some(x) => {
+                    if x > 0 {
+                        x
+                    } else {
+                        eprintln!("Invalid length: {}", x);
+                        exit(1);
+                    }
+                },
+                None => PRINT_LENGTH.parse().unwrap(),
+            }
         }
     };
-
 
     let mut offset = 0;
     let mut index_for_printing = 0;
@@ -151,7 +160,7 @@ fn main() {
             }
         }
     }
-    writeln!(w).expect("Unable to print");
+    writeln!(w).expect("Unable to print"); // newline at end
 }
 
 fn get_file_descriptor(infile: Option<String>) -> Box<dyn Read> {
