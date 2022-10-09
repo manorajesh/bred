@@ -26,5 +26,5 @@ To use, simply input a file (stdin support coming soon), and add any desired opt
 <br>The `--length` option changes how many characters to print (not including any formatting like offsets and borders). 
 <br>The `--chunk` option changes how large the buffer array should be; the bigger it is, the faster but uses more memory. 
 <br>The `--hex` option simply prints the file in hexadecimal. 
-<br>The `--color` option uses colors to differentiate between letters (`\0` are gray, others indicate how large the character code is, and orange is non-ascii characters). 
+<br>The `--color` option uses colors to differentiate between letters (`\0` are gray, others indicate how large the character code is, and orange is non-ascii characters). Note, make sure you use a terminal emulator that supports <ins>ANSI 256-color mode</ins>.
 <br>The `--space` option replaces all the spaces (`0x20`) with a green-colored `_`. This also affects the hex output.

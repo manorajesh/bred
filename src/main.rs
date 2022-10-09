@@ -6,7 +6,7 @@ const PRINT_LENGTH: &str = "64";
 
 #[derive(Parser)]
 #[command(
-    version = "0.2.1",
+    version = "0.2.2",
     author = "Mano Rajesh",
     about = "A simple binary file reader"
 )]
@@ -116,7 +116,7 @@ fn main() {
                             },
                             3 => "\x1b[36m", // cyan
                             4 => "\x1b[38;5;220m", // orange
-                            5 => "\x1b[38;5;172m", // yellow
+                            5 => "\x1b[38;5;211m", // yellow
                             6 => "\x1b[38;5;33m", // bright blue
                             7 => "\x1b[35m", // magenta
                             _ => "\x1b[0m", // reset
