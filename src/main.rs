@@ -6,7 +6,7 @@ const PRINT_LENGTH: &str = "64";
 
 #[derive(Parser)]
 #[command(
-    version = "0.3.0",
+    version = "0.3.1",
     author = "Mano Rajesh",
     about = "A simple binary file reader"
 )]
@@ -104,9 +104,10 @@ fn main() {
                         } else {
                             ""
                         }
-                    } else if char == ' ' && args.space {
-                        "\x1b[32m"
-                    } else { "" };
+                    } else { 
+                        ""
+                    };
+                    let color = if args.space && char == ' ' { "\x1b[32m" } else { color };
                 write!(w, "{}", "\x1b[0m").expect("write failed");
                 write!(w, "{}", color).expect("write failed");
                 for bit in pchar.chars() {
