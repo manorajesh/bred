@@ -34,6 +34,10 @@ struct Args {
     /// Explicitly display space as placeholder: (_)
     #[arg(short = 's', long, value_name="CHARACTER", default_value="false")]
     space: bool,
+
+    /// Print in binary
+    #[arg(short = 'b', long)]
+    binary: bool,
 }
 fn main() {
     let args = Args::parse();
@@ -78,86 +82,131 @@ fn main() {
         }
 
         for char in String::from_utf8_lossy(&buffer).chars() {
-            // printable char
-            let pchar = if args.hex {
-                let hex = format!("{:02x} ", char as u8);
-                if hex == "20 " && args.space {
-                    format!("{}{}{}", "\x1b[32m", hex, "\x1b[0m") // green
-                } else {
-                    hex
-                }
-            } else {
-                if char == ' ' && args.space {
-                    String::from("\x1b[32m_\x1b[0m") // green
-                } else {
-                    char.escape_debug().to_string()
-                }
-            };
-            
-            let char_length = char.escape_debug().len();
-            index_for_printing = {
-                if args.hex {
-                    index_for_printing + 1
-                } else {
-                    index_for_printing + char_length
-                }
-            };
-
-            if args.color {
-                if char_length > 1 {
-                    let color = {
-                        match char_length {
-                            2 => {
-                                if char == '\0' {
-                                    "\x1b[90m"
-                                } else {
-                                    "\x1b[91m"
-                                }
-                            },
-                            3 => "\x1b[36m", // cyan
-                            4 => "\x1b[38;5;220m", // orange
-                            5 => "\x1b[38;5;211m", // yellow
-                            6 => "\x1b[38;5;33m", // bright blue
-                            7 => "\x1b[35m", // magenta
-                            _ => "\x1b[0m", // reset
+            // binary printing is done bit by bit
+            // everything else is by byte
+            if args.binary {
+                let pchar = format!("{:b}", char as u8);
+                let color = if args.color {
+                    let char_length = char.escape_debug().len();
+                    if !pchar.contains('1') {
+                        "\x1b[90m"
+                    } else if char_length > 1 {
+                            let color = match char_length {
+                                2 => "\x1b[31m", // red
+                                3 => "\x1b[36m", // cyan
+                                4 => "\x1b[38;5;220m", // orange
+                                5 => "\x1b[38;5;211m", // yellow
+                                6 => "\x1b[38;5;33m", // bright blue
+                                7 => "\x1b[35m", // magenta
+                                _ => "\x1b[0m", // reset
+                            };
+                            color
+                        } else {
+                            ""
                         }
-                    };
-
-                    write!(w, "{}{}{}", color, pchar, "\x1b[0m").expect("Unable to print");
-                } else {
-                    if char.is_ascii() {
-                        write!(w, "{}", pchar).expect("Unable to print");
-                    } else {
-                        write!(w, "{}{}{}", "\x1b[38;5;130m", pchar, "\x1b[0m").expect("Unable to print");
-                    }     
+                    } else if char == ' ' && args.space {
+                        "\x1b[32m"
+                    } else { "" };
+                write!(w, "{}", "\x1b[0m").expect("write failed");
+                write!(w, "{}", color).expect("write failed");
+                for bit in pchar.chars() {
+                    if index_for_printing >= print_length {
+                        offset = {
+                            if bytes_read < print_length {
+                                offset + bytes_read
+                            } else {
+                                offset + print_length
+                            }
+                        };
+                        write!(w, "{} |\n{}{:0>7x}{}| ", "\x1b[0m", "\x1b[90m", offset, "\x1b[0m").expect("Unable to print"); 
+                        index_for_printing = 0;
+                        write!(w, "{}", color).expect("write failed");
+                    }
+                    write!(w, "{}", bit).expect("unable to write bit");
+                    index_for_printing += 1;
                 }
             } else {
-                write!(w, "{}", pchar).expect("Unable to print");
-            }
-
-            if index_for_printing >= print_length {
-                offset = {
-                    if bytes_read < print_length {
-                        offset + bytes_read
+                // printable char
+                let pchar = if args.hex {
+                    let hex = format!("{:02x} ", char as u8);
+                    if hex == "20 " && args.space {
+                        format!("{}{}{}", "\x1b[32m", hex, "\x1b[0m") // green
                     } else {
-                        offset + print_length
+                        hex
+                    }
+                } else {
+                    if char == ' ' && args.space {
+                        String::from("\x1b[32m_\x1b[0m") // green
+                    } else {
+                        char.escape_debug().to_string()
                     }
                 };
-                if args.hex{ 
-                    write!(w, "|\n{}{:0>7x}|{} ", "\x1b[90m", offset, "\x1b[0m").expect("Unable to print"); 
-                }   // because hex has extra space 
-                else { 
-                    let wall = {
-                        if index_for_printing > print_length {
-                            ""
+                
+                let char_length = char.escape_debug().len();
+                index_for_printing = {
+                    if args.hex {
+                        index_for_printing + 1
+                    } else {
+                        index_for_printing + char_length
+                    }
+                };
+
+                if args.color {
+                    if char_length > 1 {
+                        let color = {
+                            match char_length {
+                                2 => {
+                                    if char == '\0' {
+                                        "\x1b[90m"
+                                    } else {
+                                        "\x1b[91m"
+                                    }
+                                },
+                                3 => "\x1b[36m", // cyan
+                                4 => "\x1b[38;5;220m", // orange
+                                5 => "\x1b[38;5;211m", // yellow
+                                6 => "\x1b[38;5;33m", // bright blue
+                                7 => "\x1b[35m", // magenta
+                                _ => "\x1b[0m", // reset
+                            }
+                        };
+
+                        write!(w, "{}{}{}", color, pchar, "\x1b[0m").expect("Unable to print");
+                    } else {
+                        if char.is_ascii() {
+                            write!(w, "{}", pchar).expect("Unable to print");
                         } else {
-                            " |"
+                            write!(w, "{}{}{}", "\x1b[38;5;130m", pchar, "\x1b[0m").expect("Unable to print");
+                        }     
+                    }
+                } else {
+                    write!(w, "{}", pchar).expect("Unable to print");
+                }
+
+                if index_for_printing >= print_length {
+                    offset = {
+                        if bytes_read < print_length {
+                            offset + bytes_read
+                        } else {
+                            offset + print_length
                         }
                     };
-                    write!(w, "{}\n{}{:0>7x}{}| ", wall, "\x1b[90m", offset, "\x1b[0m").expect("Unable to print"); 
-                }   // at end of last character
-                index_for_printing = 0;
-            }
+                    if args.hex{ 
+                        write!(w, "|\n{}{:0>7x}|{} ", "\x1b[90m", offset, "\x1b[0m").expect("Unable to print"); 
+                    }   // because hex has extra space 
+                    else { 
+                        let wall = {
+                            if index_for_printing > print_length {
+                                ""
+                            } else {
+                                " |"
+                            }
+                        };
+                        write!(w, "{}\n{}{:0>7x}{}| ", wall, "\x1b[90m", offset, "\x1b[0m").expect("Unable to print"); 
+                    }   // at end of last character
+                    index_for_printing = 0;
+                }
+            }  
         }
     }
     writeln!(w).expect("Unable to print"); // newline at end
