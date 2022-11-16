@@ -6,7 +6,7 @@ const PRINT_LENGTH: &str = "64";
 
 #[derive(Parser)]
 #[command(
-    version = "0.2.2",
+    version = "0.3.0",
     author = "Mano Rajesh",
     about = "A simple binary file reader"
 )]
