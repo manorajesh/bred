@@ -4,6 +4,10 @@ A simple binary file reader that dumps the output to `stdout`
 ## Installation
 `cargo install bred`
 
+On NetBSD, a pre-compiled binary is available from the official repositories.
+To install it, simply run:
+`pkgin install bred`
+
 ## Usage
 ```
 Usage: bred [OPTIONS] [FILE]
