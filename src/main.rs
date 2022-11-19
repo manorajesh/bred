@@ -1,12 +1,12 @@
 use clap::Parser;
-use std::{fs::File, io::{Read, stdout, Write, BufWriter, stdin}, process::exit};
+use std::{fs::{File}, io::{Read, stdout, Write, BufWriter, stdin}, process::exit};
 
 const CHUNK_SIZE: &str = "4096";
 const PRINT_LENGTH: &str = "64";
 
 #[derive(Parser)]
 #[command(
-    version = "0.3.1",
+    version = "0.3.2",
     author = "Mano Rajesh",
     about = "A simple binary file reader"
 )]
@@ -52,7 +52,7 @@ fn main() {
 
     // accounting for defaults and valid values
     let print_length = {
-        if args.hex && args.plength == None {
+        if args.hex && args.plength == None && args.binary == false {
             8
         } else {
             match args.plength {
