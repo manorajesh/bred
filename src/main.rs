@@ -1,5 +1,7 @@
 use clap::Parser;
-use std::{fs::{File}, io::{Read, stdout, Write, BufWriter, stdin}, process::exit};
+use std::{fs::{File, read_to_string}, io::{Read, stdout, Write, BufWriter, stdin, Stdout}, process::exit};
+use rayon::prelude::*;
+use std::sync::{Arc, Mutex};
 
 const CHUNK_SIZE: &str = "4096";
 const PRINT_LENGTH: &str = "64";
@@ -43,12 +45,10 @@ fn main() {
     let args = Args::parse();
 
     // BufWriter helps with small, repeated writes
-    let lock = stdout().lock();
-    let mut w = BufWriter::new(lock);
+    let w = Arc::new(Mutex::new(AsyncStdout::new()));
 
     // Read from stdin if no file is provided
-    let mut file = get_file_descriptor(args.file);
-    let mut buffer = vec![0; args.chunk];
+    let contents = read_to_string(args.file.unwrap()).expect("Unable to read file");
 
     // accounting for defaults and valid values
     let print_length = {
@@ -69,19 +69,15 @@ fn main() {
         }
     };
 
-    let mut offset = 0;
-    let mut index_for_printing = 0;
-    print!("{}{:0>7x}{}| ", "\x1b[90m", offset, "\x1b[0m");
+    let parts = divide_string_by(contents, print_length);
 
-    loop {
-        let bytes_read = file.read(&mut buffer).expect("read failed");
-        if bytes_read == 0 {
-            break;
-        } else {
-            buffer.truncate(bytes_read);
-        }
+    let mut offset = Arc::new(Mutex::new(0));
+    print!("{}{:0>7x}{}| ", "\x1b[90m", 0, "\x1b[0m");
 
-        for char in String::from_utf8_lossy(&buffer).chars() {
+
+    parts.into_par_iter().for_each(|part| {
+        let mut index_for_printing = 0;
+        for char in part.chars() {
             // binary printing is done bit by bit
             // everything else is by byte
             if args.binary {
@@ -108,22 +104,16 @@ fn main() {
                         ""
                     };
                     let color = if args.space && char == ' ' { "\x1b[32m" } else { color };
-                write!(w, "{}", "\x1b[0m").expect("write failed");
-                write!(w, "{}", color).expect("write failed");
+                write!(w.lock().unwrap(), "{}", "\x1b[0m").expect("write failed");
+                write!(w.lock().unwrap(), "{}", color).expect("write failed");
                 for bit in pchar.chars() {
                     if index_for_printing >= print_length {
-                        offset = {
-                            if bytes_read < print_length {
-                                offset + bytes_read
-                            } else {
-                                offset + print_length
-                            }
-                        };
-                        write!(w, "{} |\n{}{:0>7x}{}| ", "\x1b[0m", "\x1b[90m", offset, "\x1b[0m").expect("Unable to print"); 
+                        *offset.lock().unwrap() += print_length;
+                        write!(w.lock().unwrap(), "{} |\n{}{:0>7x}{}| ", "\x1b[0m", "\x1b[90m", *offset.lock().unwrap(), "\x1b[0m").expect("Unable to print"); 
                         index_for_printing = 0;
-                        write!(w, "{}", color).expect("write failed");
+                        write!(w.lock().unwrap(), "{}", color).expect("write failed");
                     }
-                    write!(w, "{}", bit).expect("unable to write bit");
+                    write!(w.lock().unwrap(), "{}", bit).expect("unable to write bit");
                     index_for_printing += 1;
                 }
             } else {
@@ -172,28 +162,22 @@ fn main() {
                             }
                         };
 
-                        write!(w, "{}{}{}", color, pchar, "\x1b[0m").expect("Unable to print");
+                        write!(w.lock().unwrap(), "{}{}{}", color, pchar, "\x1b[0m").expect("Unable to print");
                     } else {
                         if char.is_ascii() {
-                            write!(w, "{}", pchar).expect("Unable to print");
+                            write!(w.lock().unwrap(), "{}", pchar).expect("Unable to print");
                         } else {
-                            write!(w, "{}{}{}", "\x1b[38;5;130m", pchar, "\x1b[0m").expect("Unable to print");
+                            write!(w.lock().unwrap(), "{}{}{}", "\x1b[38;5;130m", pchar, "\x1b[0m").expect("Unable to print");
                         }     
                     }
                 } else {
-                    write!(w, "{}", pchar).expect("Unable to print");
+                    write!(w.lock().unwrap(), "{}", pchar).expect("Unable to print");
                 }
 
                 if index_for_printing >= print_length {
-                    offset = {
-                        if bytes_read < print_length {
-                            offset + bytes_read
-                        } else {
-                            offset + print_length
-                        }
-                    };
+                    *offset.lock().unwrap() += print_length;
                     if args.hex{ 
-                        write!(w, "|\n{}{:0>7x}|{} ", "\x1b[90m", offset, "\x1b[0m").expect("Unable to print"); 
+                        write!(w.lock().unwrap(), "|\n{}{:0>7x}|{} ", "\x1b[90m", *offset.lock().unwrap(), "\x1b[0m").expect("Unable to print"); 
                     }   // because hex has extra space 
                     else { 
                         let wall = {
@@ -203,14 +187,15 @@ fn main() {
                                 " |"
                             }
                         };
-                        write!(w, "{}\n{}{:0>7x}{}| ", wall, "\x1b[90m", offset, "\x1b[0m").expect("Unable to print"); 
+                        write!(w.lock().unwrap(), "{}\n{}{:0>7x}{}| ", wall, "\x1b[90m", *offset.lock().unwrap(), "\x1b[0m").expect("Unable to print"); 
                     }   // at end of last character
                     index_for_printing = 0;
                 }
             }  
         }
-    }
-    writeln!(w).expect("Unable to print"); // newline at end
+    });
+    
+    writeln!(w.lock().unwrap()).expect("Unable to print"); // newline at end
 }
 
 fn get_file_descriptor(infile: Option<String>) -> Box<dyn Read> {
@@ -227,4 +212,43 @@ fn get_file_descriptor(infile: Option<String>) -> Box<dyn Read> {
         None => Box::new(stdin()),
     };
     input
+}
+
+fn divide_string_by(input: String, parts: usize) -> Vec<String> {
+    let mut strings = Vec::new();
+    let len_of_part = input.len() / parts;
+    let mut idx = 0;
+    for ch in input.chars() {
+        if idx % len_of_part == 0 {
+            strings.push(String::new());
+        }
+        strings.last_mut().unwrap().push(ch);
+        idx += 1;
+    }
+    strings
+}
+
+#[derive(Clone)]
+struct AsyncStdout {
+    stdout: Arc<Mutex<Stdout>>,
+}
+
+impl AsyncStdout {
+    fn new() -> AsyncStdout {
+        AsyncStdout {
+            stdout: Arc::new(Mutex::new(stdout())),
+        }
+    }
+}
+
+impl Write for AsyncStdout {
+    fn write(&mut self, buf: &[u8]) -> Result<usize, std::io::Error> {
+        let mut stdout = self.stdout.lock().unwrap().lock();
+        stdout.write(buf)
+    }
+
+    fn flush(&mut self) -> Result<(), std::io::Error> {
+        let mut stdout = self.stdout.lock().unwrap().lock();
+        stdout.flush()
+    }
 }
